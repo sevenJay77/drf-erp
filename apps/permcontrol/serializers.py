@@ -4,18 +4,14 @@ import six
 from collections import OrderedDict
 
 from rest_framework import serializers
-from rest_framework.fields import SkipField
-from rest_framework.relations import PKOnlyObject
-from django.db import transaction
-
 from core.utils.functions import filter_space
 from core.framework.hashers import check_password
 from core.utils.functions import match_mobile, match_email
 from core.framework.v_exception import VException
-from common.serializers import  CustomFieldSerializer, CustomField
-from permcontrol.models import User, PermissionGroup, Role, Department, PersonnelRecord, UserCustomValue
+from permcontrol.models import User, PermissionGroup, Role, Department, AttendanceConfig, CalendarEditRecord, AttendanceRecord, PersonnelRecord
 from permcontrol.service import get_full_tree_permission
-from common.custom_validate import validate_custom_dict
+from common.component import StandardSerializer
+
 
 import logging
 
@@ -243,7 +239,7 @@ class PersonEditSerializer(serializers.ModelSerializer):
 
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(StandardSerializer):
     id = serializers.IntegerField(read_only=True, help_text='id')
     name = serializers.CharField(required=True, min_length=2, error_messages={"required": "缺少账号", "blank": "账号不能为空", "null": "账号不能为空", "min_length": "账号需大于2位"}, help_text='账号')
     job_number = serializers.CharField(required=False, allow_blank=True, allow_null=True, help_text='工号')
@@ -270,30 +266,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
+        table = 'user'
         exclude = ['password', 'is_delete']
 
-    # 系统字段序列化
-    def to_custom_field(self):
-        data = []
-        fields = self._readable_fields
-        for field in fields:
-            info = {
-                "name": field.field_name,
-                "label": field.help_text,
-                "field_type": field.__class__.__name__,
-                "read_only": field.read_only,
-                "custom_field_options": None,
-                "enable": True,
-                "is_required": not field.allow_null,
-                "is_default": True,
-                "is_show": True,
-                "position": 0
-            }
-            # 选择属性
-            if hasattr(field, 'choices'):
-                info['custom_field_options'] = json.dumps(field.choices, ensure_ascii=False)
-            data.append(info)
-        return data
 
     def validate_name(self, attrs):
         name = filter_space(attrs, True)
@@ -360,50 +335,6 @@ class UserSerializer(serializers.ModelSerializer):
                 raise VException(500, '所选角色不存在')
         return attrs
 
-    def validate(self, attrs):
-        form_data = self.initial_data.copy()
-        attrs = validate_custom_dict('user', attrs, form_data)
-        return attrs
-
-    def create(self, validated_data):
-        try:
-            with transaction.atomic():
-                custom_dict = validated_data.pop('custom_dict', {})
-                instance = User.objects.create(**validated_data)
-                # 自定义字段值
-                for custom_field, custom_val in custom_dict.items():
-                    custom_record = UserCustomValue()
-                    custom_record.entity_id = instance.id
-                    custom_record.field_name = custom_field
-                    custom_record.value = custom_val
-                    custom_record.save()
-        except Exception as e:
-            logger.error("创建用户失败 ： {}".format(e))
-            raise VException(500, '创建失败')
-        return instance
-
-
-    def update(self, instance, validated_data):
-        try:
-            with transaction.atomic():
-                custom_dict = validated_data.pop('custom_dict', {})
-                for attr, value in validated_data.items():
-                    setattr(instance, attr, value)
-                instance.save()
-                # 自定义字段值
-                for custom_field, custom_val in custom_dict.items():
-                    custom_record = UserCustomValue.objects.filter(entity_id=instance.id,
-                                                                   field_name=custom_field).first()
-                    if not custom_record:
-                        custom_record = UserCustomValue()
-                        custom_record.entity_id = instance.id
-                        custom_record.field_name = custom_field
-                    custom_record.value = custom_val
-                    custom_record.save()
-        except:
-            raise VException(500, '更新失败')
-        return instance
-
     def get_superior(self, obj):
         display_name = ""
         if obj.superior_id:
@@ -432,37 +363,81 @@ class UserSerializer(serializers.ModelSerializer):
         return name
 
 
-    def to_representation(self, instance):
-        ret = OrderedDict()
-        fields = self._readable_fields
-        for field in fields:
-            try:
-                attribute = field.get_attribute(instance)
-            except SkipField:
-                continue
-            check_for_none = attribute.pk if isinstance(attribute, PKOnlyObject) else attribute
-            if check_for_none is None:
-                ret[field.field_name] = None
-            else:
-                ret[field.field_name] = field.to_representation(attribute)
-        # 自定义字段
-        custom_fields = CustomField.objects.filter(is_delete=0,
-                                                   table='user',
-                                                   enable=1,
-                                                   is_default=0).all()
-        for custom_field in custom_fields:
-            custom_val = None
-            custom_record = UserCustomValue.objects.filter(is_delete=0,
-                                                           entity_id=instance.id,
-                                                           field_name=custom_field.name).first()
-            if custom_record:
-                custom_val = custom_record.value
-            ret[custom_field.name] = custom_val
-        return ret
-
 
 
 class UserQuitSerializer(serializers.Serializer):
     quit_date = serializers.DateTimeField(required=True, input_formats=["%Y-%m-%d"], error_messages={"required": "请输入离职日期", "null": "离职日期不能为空", "invalid": "离职日期格式错误", "date": "离职日期格式错误", "make_aware": "离职日期格式错误", "overflow": "离职日期格式错误"}, format="%Y-%m-%d")
     comment = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
+
+
+class UpdateAttendanceSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(required=True, error_messages={"required": "请填写用户id", "invalid": "请输入正确的用户id", "null": "用户id不能为空"})
+    date = serializers.DateTimeField(required=True, input_formats=["%Y-%m-%d"], error_messages={"required": "请输入日期", "null": "日期不能为空", "invalid": "日期格式错误", "date": "日期格式错误", "make_aware": "日期格式错误", "overflow": "日期格式错误"}, format="%Y-%m-%d")
+
+
+
+class EditAttendanceSerializer(serializers.ModelSerializer):
+    first_admit = serializers.TimeField(required=False, allow_null=True, input_formats=["%H:%M:%S"], error_messages={"required": "请输入签到时间", "invalid": "签到时间格式错误"}, format="%H:%M:%S")
+    last_admit = serializers.TimeField(required=False, allow_null=True, input_formats=["%H:%M:%S"], error_messages={"required": "请输入签退时间", "invalid": "签退时间格式错误"}, format="%H:%M:%S")
+    out_duration = serializers.FloatField(required=False, allow_null=True, error_messages={"required": "缺少外出时长", "invalid": "外出时长格式错误"})
+    comment = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    class Meta:
+        model = AttendanceRecord
+        fields = ['first_admit', 'last_admit', 'out_duration', 'comment']
+
+
+
+class UpdateCalendarSerializer(serializers.Serializer):
+    day = serializers.DateField(required=True, input_formats=["%Y-%m-%d"], error_messages={"required": "请输入日期", "null": "日期不能为空", "invalid": "日期格式错误", "date": "日期格式错误", "make_aware": "日期格式错误", "overflow": "日期格式错误"}, format="%Y-%m-%d")
+    is_holiday = serializers.ChoiceField(required=True, allow_null=True, choices=((0, '否'), (1, '是')), error_messages={"required": "请选择是否放假", "invalid_choice": "请选择正确是否放假"})
+    comment = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+
+class AttendanceConfigSerializer(serializers.Serializer):
+    time_interval_tuple = serializers.CharField(required=True, error_messages={"required": "请填写考勤时段", "blank": "考勤时段不能为空", "null": "考勤时段不能为空"})
+    out_limit = serializers.FloatField(required=True, error_messages={"required": "缺少外出阈值", "invalid": "外出阈值格式错误"})
+    exclude_user = serializers.CharField(required=True, allow_null=True, allow_blank=True, error_messages={"required": "缺少不考勤人员设置"})
+
+    def validate_time_interval_tuple(self, attrs):
+        try:
+            time_interval = json.loads(attrs)
+        except Exception as e:
+            raise VException(500, "考勤时段错误")
+        if len(time_interval) != 2:
+            raise VException(500, "请配置2个考勤时段")
+        for interval in time_interval:
+            if len(interval) != 2:
+                raise VException(500, "请配置正确时段")
+            try:
+                first_admit = interval[0]
+                last_admit = interval[1]
+                first_admit_datetime = datetime.datetime.strptime(first_admit, "%H:%M")
+                last_admit_datetime = datetime.datetime.strptime(last_admit, "%H:%M")
+            except:
+                raise VException(500, '请填写[%H:%M]格式日期')
+
+            if first_admit_datetime >= last_admit_datetime:
+                raise VException(500, '起始时间需小于结束时间')
+
+        if time_interval[0][1] > time_interval[1][0]:
+            raise VException(500, '第2个时区必须大于第1个时区')
+
+        return time_interval
+
+
+    def validate_exclude_user(self, attrs):
+        if attrs:
+            try:
+                exclude_user = attrs.split(',')
+                for user_id in exclude_user:
+                    user = User.objects.filter(is_delete=0,
+                                               status=1,
+                                               id=user_id).first()
+                    if not user:
+                        raise VException(500, '人员不存在')
+            except Exception as e:
+                raise VException(500, '考勤参数错误')
+        return attrs

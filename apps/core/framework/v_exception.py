@@ -2,6 +2,7 @@
 # 自定义业务异常
 class VException(Exception):
     def __init__(self, code, msg):
+        super(Exception, self).__init__()
         self.code = code
         self.msg = msg
 

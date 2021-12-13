@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from core.framework.v_exception import VException
 from core.utils.functions import format_multi_conditions
-from common.models import FundSettlementType, ExpenseType, FundAccount, CustomField
-from common.custom_validate import custom_type_list
+from common.models import CustomField
+from common.component import custom_type_list
 import json
 
 
@@ -22,55 +22,6 @@ class ResourceUploadSerializer(serializers.Serializer):
 
 
 
-# 结算类型
-class FundSettlementTypeSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(required=True, error_messages={"required": "缺少结算类型", "blank": "结算类型不能为空", "null": "结算类型不能为空"}, trim_whitespace=False)
-    is_default = serializers.IntegerField(read_only=True)
-
-    class Meta:
-        model = FundSettlementType
-        fields = ['id', 'name', 'is_default']
-
-
-
-# 收支类型
-class ExpenseTypeSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(required=True, error_messages={"required": "缺少结算类型", "blank": "结算类型不能为空", "null": "结算类型不能为空"}, trim_whitespace=False)
-    type = serializers.ChoiceField(required=True, choices=ExpenseType.type_choice, error_messages={"required": "缺少收支类型", "null": "收支类型不能为空", "invalid_choice": "请选择收支类型"})
-    is_default = serializers.IntegerField(read_only=True)
-
-    class Meta:
-        model = ExpenseType
-        fields = ['id', 'name', 'type', 'is_default']
-
-
-
-# 资金账户
-class FundAccountSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(required=True, error_messages={"required": "缺少账户名称", "blank": "账户名称不能为空", "null": "账户名称不能为空"}, trim_whitespace=False)
-    fund_settlement_type = serializers.IntegerField(required=True, error_messages={"required": "缺少结算类型", "null": "结算类型不能为空", "invalid": "请选择正确结算类型"})
-    default_amount = serializers.FloatField(required=True, error_messages={"required": "缺少起始金额", "invalid": "起始金额不能为空", "null": "起始金额不能为空"})
-    total_amount = serializers.FloatField(read_only=True)
-    code = serializers.CharField(read_only=True)
-    create_user_id = serializers.IntegerField(read_only=True)
-    update_user_id = serializers.IntegerField(read_only=True)
-    updated_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
-    created_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
-
-    class Meta:
-        model = FundAccount
-        exclude = ['is_delete']
-
-    def validate_fund_settlement_type(self, attrs):
-        fund_settlement_type = FundSettlementType.objects.filter(id=attrs,
-                                                                 is_delete=0).first()
-        if not fund_settlement_type:
-            raise VException(500, '结算类型选择错误')
-
-        return attrs
-
-
-
 class CustomFieldSerializer(serializers.ModelSerializer):
     table = serializers.CharField(required=True, error_messages={"required": "缺少表名", "blank": "表名不能为空", "null": "表名不能为空"})
     label = serializers.CharField(required=True, error_messages={"required": "缺少字段名称", "blank": "字段名称不能为空", "null": "字段名称不能为空"})
@@ -79,10 +30,10 @@ class CustomFieldSerializer(serializers.ModelSerializer):
     is_required = serializers.BooleanField(required=True, error_messages={"required": "缺少是否必填", "invalid": "选择是否必填", "null": "是否必填不能为空"})
     enable = serializers.BooleanField(required=True, error_messages={"required": "缺少是否启用", "invalid": "选择是否启用", "null": "是否启用不能为空"})
     is_show = serializers.BooleanField(required=True, error_messages={"required": "缺少是否展示", "invalid": "选择是否展示", "null": "是否展示不能为空"})
+    is_order = serializers.BooleanField(required=True, error_messages={"required": "缺少是否排序", "invalid": "选择是否排序", "null": "是否排序不能为空"})
+    is_filter = serializers.BooleanField(required=True, error_messages={"required": "缺少是否筛选", "invalid": "选择是否筛选", "null": "是否筛选不能为空"})
     name = serializers.CharField(read_only=True)
     is_default = serializers.BooleanField(read_only=True)
-    is_order = serializers.BooleanField(read_only=True)
-    is_filter = serializers.BooleanField(read_only=True)
     position = serializers.IntegerField(read_only=True)
     create_user_id = serializers.IntegerField(read_only=True)
     update_user_id = serializers.IntegerField(read_only=True)
@@ -98,15 +49,14 @@ class CustomFieldSerializer(serializers.ModelSerializer):
 
         custom_field_options = attrs.get('custom_field_options')
         if field_type == 'ChoiceField' and not custom_field_options:
-            raise VException(500, '缺少选项')
+            raise VException(500, '缺少选项配置')
 
         return attrs
-
 
     def validate_custom_field_options(self, attrs):
         if attrs:
             try:
-                result = json.loads(attrs)
+                json.loads(attrs)
             except Exception as e:
                 raise VException(500, '选项配置错误')
 
@@ -120,6 +70,8 @@ class CustomFieldUpdateSerializer(serializers.Serializer):
     custom_field_options = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     enable = serializers.BooleanField(required=False, error_messages={"invalid": "选择是否启用", "null": "是否启用不能为空"})
     is_show = serializers.BooleanField(required=True, error_messages={"required": "缺少是否展示", "invalid": "选择是否展示", "null": "是否展示不能为空"})
+    is_order = serializers.BooleanField(required=True, error_messages={"required": "缺少是否排序", "invalid": "选择是否排序", "null": "是否排序不能为空"})
+    is_filter = serializers.BooleanField(required=True, error_messages={"required": "缺少是否筛选", "invalid": "选择是否筛选", "null": "是否筛选不能为空"})
 
 
     def validate_custom_field_options(self, attrs):

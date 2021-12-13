@@ -36,8 +36,6 @@ class CustomPermissions(DjangoModelPermissions):
             need_perms = "{}.{}".format(module_perms[0], action_perms)
         except:
             raise VException(500, '请求异常，请稍后再试')
-
-
         logger.info("need_perms {}".format(need_perms))
         if need_perms not in user_perms:
             # 查找权限所需的角色

@@ -37,6 +37,7 @@ class CommonConfig:
     bind_port = SettingsUtils.get_val('env', 'bind_port')
     workers_number = int(SettingsUtils.get_val('env', 'workers_number'))
     threads_number = int(SettingsUtils.get_val('env', 'threads_number'))
+    origin_list_tuple = (SettingsUtils.get_val('env', 'origin_list'), )
 
 
     """
@@ -63,6 +64,21 @@ class CommonConfig:
     consumer_key = SettingsUtils.get_val('ai_redis', 'consumer_key')
 
 
+
+class AliModuleConfig:
+    access_key_id = SettingsUtils.get_val('ali_module', 'access_key_id')
+    access_secret = SettingsUtils.get_val('ali_module', 'access_secret')
+
+    sms_sign_name = SettingsUtils.get_val('ali_module', 'sms_sign_name')
+    register_template_code = SettingsUtils.get_val('ali_module', 'register_template_code')
+    login_template_code = SettingsUtils.get_val('ali_module', 'login_template_code')
+    forget_password_code = SettingsUtils.get_val('ali_module', 'forget_password_code')
+    invite_template_code = SettingsUtils.get_val('ali_module', 'invite_template_code')
+
+    oss_bucket = SettingsUtils.get_val('ali_module', 'oss_bucket')
+    oss_endpoint = SettingsUtils.get_val('ali_module', 'oss_endpoint')
+    oss_domain = SettingsUtils.get_val('ali_module', 'oss_domain')
+
 class SafeModuleConfig:
     # token有效时间
     access_token_exp = int(SettingsUtils.get_val('safe_module', 'access_token_exp'))
@@ -71,3 +87,10 @@ class SafeModuleConfig:
     anon_time_request = SettingsUtils.get_val('safe_module', 'anon_time_request')
     user_time_request = SettingsUtils.get_val('safe_module', 'user_time_request')
 
+
+class WOModuleConfig:
+    app_id = SettingsUtils.get_val('wo_module', 'app_id')
+    access_key = SettingsUtils.get_val('wo_module', 'access_key')
+    access_secret = SettingsUtils.get_val('wo_module', 'access_secret')
+    in_device_no = SettingsUtils.get_val('wo_module', 'in_device_no').split(',')
+    out_device_no = SettingsUtils.get_val('wo_module', 'out_device_no').split(',')

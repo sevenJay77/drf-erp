@@ -83,7 +83,6 @@ class AdminUserNotifyView(mixins.ListModelMixin,
         ),
         tags=['notify'],
     )
-    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = AdminNotifySerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)

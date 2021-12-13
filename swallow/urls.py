@@ -11,20 +11,23 @@ from core.framework.error_page import page_not_found, server_error
 
 # 自定义路由
 from permcontrol.router import permcontrol_router
+from app_edition.router import edition_router
 from warehouse.router import warehouse_router
+from audit.router import audit_router
 from common.router import common_router
 
 # 添加路由
 route = DefaultRouter()
 route.registry.extend(permcontrol_router.registry)
 route.registry.extend(edition_router.registry)
-route.registry.extend(warehouse_router.registry)
+route.registry.extend(audit_router.registry)
 route.registry.extend(common_router.registry)
+route.registry.extend(warehouse_router.registry)
 
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="DRF-ERP API Doc",
+        title="中锻材ERP API Doc",
         default_version='v1',
     ),
     public=True,

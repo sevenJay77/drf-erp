@@ -26,6 +26,9 @@ DEBUG = CommonConfig.debug_mode
 
 ALLOWED_HOSTS = ['*']
 
+ATOMIC_REQUESTS = True
+
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 ######################################
 # 模块配置
@@ -37,9 +40,12 @@ INSTALLED_APPS = [
     'drf_yasg',
     # 自定义模块
     'permcontrol',
+    'app_edition',
     'operate_record',
+    'audit',
+    'common',
     'warehouse',
-    'common'
+
 ]
 
 
@@ -49,8 +55,7 @@ INSTALLED_APPS = [
 # 增加忽略
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
-CORS_ORIGIN_WHITELIST = ('*')
-
+CORS_ORIGIN_WHITELIST = CommonConfig.origin_list_tuple
 CORS_ALLOW_METHODS = (
     'DELETE',
     'GET',
@@ -139,10 +144,10 @@ DATABASES = {
         'CONN_MAX_AGE': None,
         'OPTIONS': {
             'charset': 'utf8mb4',
-            # 'autocommit': True,
             'maxconnections': 500,
         },
         'STORAGE_ENGINE': 'INNODB',
+        'ATOMIC_REQUESTS': True,
     }
 }
 

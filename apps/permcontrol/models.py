@@ -1,15 +1,10 @@
 from django.db import models
-
+from common.component import StandardModel
 
 # 部门表
-class Department(models.Model):
+class Department(StandardModel):
     name = models.CharField(max_length=128, verbose_name="名称")
     parent_id = models.IntegerField(null=True, verbose_name="上级部门id")
-    is_delete = models.SmallIntegerField(choices=((0, '否'), (1, '是')), default=0)
-    created_time = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    create_user_id = models.IntegerField(null=True)
-    updated_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-    update_user_id = models.IntegerField(null=True)
 
     class Meta:
         verbose_name = "部门表"
@@ -32,15 +27,10 @@ class PermissionGroup(models.Model):
 
 
 # 角色
-class Role(models.Model):
+class Role(StandardModel):
     name = models.CharField(max_length=32, verbose_name="名称")
     permission = models.ManyToManyField(to=PermissionGroup)
     is_default = models.IntegerField(default=0, verbose_name="系统默认")
-    is_delete = models.SmallIntegerField(choices=((0, '否'), (1, '是')), default=0)
-    created_time = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    create_user_id = models.IntegerField(null=True)
-    updated_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-    update_user_id = models.IntegerField(null=True)
 
     class Meta:
         verbose_name = '角色表'
@@ -49,7 +39,7 @@ class Role(models.Model):
 
 
 # 用户表
-class User(models.Model):
+class User(StandardModel):
     gender_choice = ((0, '男'), (1, '女'))
     status_choice = ((0, '离职'), (1, '在职'))
 
@@ -69,31 +59,11 @@ class User(models.Model):
     last_login = models.DateTimeField(null=True, verbose_name='最近登录时间')
     join_date = models.DateField(null=True, verbose_name="入职日期")
     quit_date = models.DateField(null=True, verbose_name="离职日期")
-    is_delete = models.SmallIntegerField(choices=((0, '否'), (1, '是')), default=0)
-    create_user_id = models.IntegerField(null=True)
-    created_time = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    update_user_id = models.IntegerField(null=True)
-    updated_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
     class Meta:
         verbose_name = '用户表'
         verbose_name_plural = verbose_name
         db_table = 'users'
-
-
-
-# 扩展字段表值
-class UserCustomValue(models.Model):
-    entity_id = models.IntegerField(verbose_name="记录id")
-    field_name = models.CharField(max_length=255, verbose_name="字段name")
-    value = models.CharField(max_length=255, null=True, verbose_name="值")
-    version_no = models.CharField(max_length=11, null=True, verbose_name="版本号")
-    is_delete = models.SmallIntegerField(choices=((0, '否'), (1, '是')), default=0)
-
-    class Meta:
-        verbose_name = '用户扩展值表'
-        verbose_name_plural = verbose_name
-        db_table = 'user_custom_value'
 
 
 
@@ -138,4 +108,84 @@ class VerifyCode(models.Model):
         verbose_name = '验证码表'
         verbose_name_plural = verbose_name
         db_table = 'verify_code'
+
+
+
+# 门禁打卡记录
+class AdmitRecord(models.Model):
+    admit_name = models.CharField(max_length=11, verbose_name="员工名称")
+    admit_guid = models.CharField(max_length=255, verbose_name="员工id")
+    user_id = models.IntegerField(null=True)
+    device_number = models.CharField(max_length=11, verbose_name="设备名称")
+    device_no = models.CharField(max_length=20, verbose_name="设备编号")
+    rec_mode = models.IntegerField(verbose_name="识别模式")
+    file_path = models.TextField(null=True, verbose_name="现场图片")
+    admit_type = models.IntegerField(choices=((0, '进门'), (1, '出门'), (2, '抓拍')), verbose_name="打卡类型")
+    show_time = models.DateTimeField(verbose_name="识别时间")
+
+    class Meta:
+        verbose_name = '门禁考勤记录'
+        verbose_name_plural = verbose_name
+        db_table = 'admit_record'
+
+
+
+# 考勤记录表
+class AttendanceRecord(models.Model):
+    code = models.CharField(max_length=11, verbose_name="编号")
+    user_id = models.IntegerField()
+    date = models.DateField(verbose_name="日期")
+    first_admit = models.TimeField(null=True, max_length=0, verbose_name="签到时间")
+    last_admit = models.TimeField(null=True, max_length=0, verbose_name="签退时间")
+    out_duration = models.FloatField(default=None, null=True, verbose_name="外出时长")
+    duty_duration = models.FloatField(default=0, null=True, verbose_name="上班时长")
+    is_late = models.IntegerField(default=0, verbose_name="是否迟到")
+    is_leave_early = models.IntegerField(default=0, verbose_name="是否早退")
+    is_out_timeout = models.IntegerField(default=0, verbose_name="是否外出过长")
+    time_interval_tuple = models.TextField(verbose_name="工作时间段")
+    out_limit = models.FloatField(verbose_name="外出限制")
+    is_revise = models.IntegerField(default=0, verbose_name="是否修正记录")
+    comment = models.CharField(max_length=255, null=True, verbose_name="备注")
+    created_time = models.DateTimeField(auto_now_add=True, null=True, verbose_name="创建时间")
+    update_user_id = models.IntegerField(null=True, verbose_name="修改人员")
+    updated_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        verbose_name = '考勤记录'
+        verbose_name_plural = verbose_name
+        db_table = 'attendance_record'
+
+
+
+# 日历编辑记录
+class CalendarEditRecord(models.Model):
+    day = models.DateField(verbose_name="日期")
+    is_holiday = models.IntegerField(verbose_name="是否放假")
+    comment = models.CharField(max_length=255, null=True)
+    created_time = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    create_user_id = models.IntegerField(null=True)
+    updated_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    update_user_id = models.IntegerField(null=True)
+
+    class Meta:
+        verbose_name = '日历编辑记录'
+        verbose_name_plural = verbose_name
+        db_table = 'calendar_edit_record'
+
+
+
+# 考勤配置
+class AttendanceConfig(models.Model):
+    name = models.CharField(max_length=255, verbose_name="名称")
+    value = models.TextField(null=True, verbose_name="配置")
+    date = models.DateField(null=True, verbose_name="日期")
+    create_user_id = models.IntegerField()
+    created_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    update_user_id = models.IntegerField(null=True)
+    updated_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        verbose_name = '考勤配置'
+        verbose_name_plural = verbose_name
+        db_table = 'attendance_config'
 
